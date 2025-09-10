@@ -5,35 +5,14 @@
         <title>TP3 | Web3D</title>
         <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
         <script src="https://unpkg.com/@c-frame/aframe-physics-system@4.2.2/dist/aframe-physics-system.min.js"></script>
+        <script src="./assets/scripts/look-control.js"></script>
         <style>body{margin:0;overflow:hidden}</style>
     </head>
     <body>
-        <a-scene physics="debug: false">
-            <a-entity id="player-rig"
-                look-controls="pointerLockEnabled: true"
-                move-controls="speed: 7; jumpSpeed: 20; jumpCooldown: 200; gravity: 9.81"
-                position="0 0 0"
-                rotation="0 0 0" 
-                dynamic-body="primitive: sphere; mass: 50; linearDamping: 0.2">
-                <a-gltf-model id="player-model" 
-                            src="./assets/models/ben_10_alien_force_ben_tennyson.glb" 
-                            scale="0.5 0.5 0.5"
-                            rotation="0 180 0"
-                            shadow="cast: true; receive: true">
-                </a-gltf-model>
-                <a-entity id="camera-rig" position="-0.6 1.5 0" rotation="0 0 0">
-                    <a-camera wasd-controls-enabled="false" rotation="0 0 0" position="0 0 .65" 
-                                camera="fov: 75; near: 0.1; far: 1000; active: true">
-                        <a-entity cursor="fuse: false; rayOrigin: mouse"
-                                position="0 0 -1" 
-                                geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01" 
-                                material="color: black; shader: flat">
-                        </a-entity>
-                    </a-camera>
-                </a-entity>
-            </a-entity>
+        <a-scene physics="debug: true">
 
             <a-plane id="ground-plane" 
+                class="ground"
                 src="./assets/textures/grass/Poliigon_GrassPatchyGround_4585_BaseColor.jpg" 
                 height="100" width="100" rotation="-90 0 0" 
                 repeat="50 50" normal-texture-repeat="50 50" ambient-occlusion-texture-repeat="50 50" roughness-texture-repeat="50 50" metalness-texture-repeat="50 50"
@@ -42,44 +21,129 @@
                 roughness="1" roughness-map="./assets/textures/grass/Poliigon_GrassPatchyGround_4585_Roughness.jpg"
                 ambientOcclusion-map="./assets/textures/grass/Poliigon_GrassPatchyGround_4585_AmbientOcclusion.jpg" ambientOcclusion-intensity="1"
                 metalness-map="./assets/textures/grass/Poliigon_GrassPatchyGround_4585_Metallic.jpg"
-                static-body
+                collider-check raycaster="objects: .collidable;"
+                static-body="shape: auto; size: 100 1 100;"
             ></a-plane>
+
+            <a-box id="deepGroundBox" class="ground" position="0 -0.51 0" depth="100" height="1" width="100"
+                color="#00000" shadow="cast: true; receive: true"
+                static-body="offset: 0.01 0 0;"></a-box>
+
+            <a-box position="5 0.5 -5" depth="1" height="1" width="1"
+                color="#ffffff" shadow="cast: true; receive: true"
+                material="metalness: 1; roughness: 0.1"
+                class="ground"
+                static-body="shape: box;"></a-box>
+            
+            <a-entity id="player-rig"
+                move-controls="speed: .3; jumpSpeed: 10; rayLen: 0.7; groundEps: 0.05"
+                position="0 0 0"
+                rotation="0 0 0" 
+                body="type: dynamic; shape: none; mass: 65 ; linearDamping: 0.75; angularDamping: .8; material: playerMaterial;"
+                shape="shape: cylinder; 
+                       height: 1.67;
+                       radiusTop: 0.25;
+                       radiusBottom: 0.25; 
+                       offset: 0 0 0;"
+                log="loaded player-rig">
+                <a-gltf-model id="player-model" 
+                            src="./assets/models/ben_10_alien_force_ben_tennyson.glb" 
+                            scale="0.1 0.1 0.1"
+                            rotation="0 180 0"
+                            position="0 -0.835 0"
+                            shadow="cast: true; receive: true" player-model>
+                    <a-entity id="ground-raycaster"
+                            raycaster="objects: .ground;"
+                            position="0 -0.835 0"
+                            visible="false">
+                    </a-entity>
+                </a-gltf-model>
+                <a-entity id="look-rig">
+                    <a-entity id="camera-rig" position="0 0.665 0" rotation="0 0 0"
+                        look-controls="pointerLockEnabled: true; physicalRotation: true;"
+                        dynamic-body="shape: auto; mass: 0; type: kinematic;"">
+                        <a-camera wasd-controls-enabled="false" rotation="0 0 0" position="-0.6 0 .65" 
+                                    camera="fov: 75; near: 0.1; far: 1000; active: true">
+                            <a-entity cursor="fuse: false; rayOrigin: mouse"
+                                    position="0 0 -0.1" 
+                                    geometry="primitive: ring; radiusInner: 0.0005; radiusOuter: 0.001" 
+                                    material="color: black; shader: flat">
+                            </a-entity>
+                        </a-camera>
+                    </a-entity>
+                </a-entity>
+            </a-entity>
 
             <a-entity id="sun"
                     light="type: directional; castShadow: true; intensity: 2"
-                    position="-1 3 -6">
+                    position="-10 30 -60">
             </a-entity>
             <!-- La skybox est passée comme background -->
             
         </a-scene>
     </body>
     <script>
-        const ground = document.querySelector("#ground-plane");
-        const groundTextures = {
-            Albedo: "./assets/textures/grass/Poliigon_GrassPatchyGround_4585_BaseColor.jpg",
-            AO: "./assets/textures/grass/Poliigon_GrassPatchyGround_4585_AmbientOcclusion.jpg",
-            Normal: "./assets/textures/grass/Poliigon_GrassPatchyGround_4585_Normal.jpg",
-            Roughness: "./assets/textures/grass/Poliigon_GrassPatchyGround_4585_Roughness.jpg"
-        }
-
-        /*ground.addEventListener('loaded', e => {
-            ground.setAttribute("normal-map") = groundTextures.Normal.value;
-            ground.setAttribute("roughness-map") = groundTextures.Roughness.value;
-        });*/
-    </script>
-    <script>
         const camera = document.querySelector('#player-rig a-camera');
+        const cameraRig = document.querySelector('#camera-rig');
         const player = document.querySelector('#player-rig');
+        const groundRaycaster = document.querySelector('#ground-raycaster');
+        const model = document.querySelector('#player-model');
+        const groundPlane = document.querySelector('#ground-plane');
         const lookControls = camera.components['look-controls'];
+        const deepGroundBox = document.querySelector('#deepGroundBox');
+
+        AFRAME.registerComponent('player-model', {
+            init: function () {
+                const rotation = cameraRig.getAttribute('rotation');
+                model.setAttribute('rotation', `0 ${rotation.y + 180} 0`);
+            },
+            tick: function (time, deltaTime) {
+                const rotation = cameraRig.getAttribute('rotation');
+                if (rotation.x > 45) cameraRig.setAttribute('rotation', `45 ${rotation.y} ${rotation.z}`);
+                if (rotation.x < -45) cameraRig.setAttribute('rotation', `-45 ${rotation.y} ${rotation.z}`);
+                model.setAttribute('rotation', `0 ${rotation.y + 180} 0`);
+            }
+        });
 
         AFRAME.registerComponent('log', {
             schema: {type: 'string'},
-            init: function () { console.log(this.data); }
+            init: function () { console.log(this.data); },
+            tick: function (time, deltaTime) {
+                //console.log("position:",this.el.getAttribute('position'), "rotation:",this.el.getAttribute('rotation'));
+            }
         });
 
         player.addEventListener('body-loaded', () => {
             const body = player.body;
-            body.angularFactor.set(0, 1, 0);
+            body.angularFactor.set(0, 1, 0); // No rotation
+            
+            const noFriction = new CANNON.Material("playerMaterial");
+            noFriction.friction = 0.0;
+            noFriction.restitution = 0.0;
+            
+            body.material = noFriction;
+
+            body.mass = 20;
+        });
+
+        groundPlane.addEventListener('body-loaded', () => {
+            const body = groundPlane.body;
+            const groundMaterial = new CANNON.Material("groundMaterial");
+            groundMaterial.friction = 0.0;
+            groundMaterial.restitution = 0.0;
+            body.material = groundMaterial;
+
+            const contactMaterial = new CANNON.ContactMaterial(
+                groundMaterial,
+                player.body.material,
+                {
+                    friction: 0.0,
+                    restitution: 0.0
+                }
+            );
+            groundPlane.body.world.addContactMaterial(contactMaterial);
+            player.body.updateMassProperties();
+            console.log(player.body.mass);
         });
 
         AFRAME.registerComponent('move-controls', {
@@ -87,14 +151,16 @@
                 speed: {type: 'number', default: 5},
                 jumpSpeed: {type: 'number', default: 5},
                 jumpCooldown: {type: 'number', default: 500},
-                gravity: {type: 'number', default: 9.81}
+                rayLen: {type: 'number', default: 0.7},
+                gravity: {type: 'number', default: 9.81},
+                groundEps: {type: 'number', default: 0.05}
             },
             init: function () {
                 this.keys = {};
                 window.addEventListener('keydown', e => this.keys[e.key.toLowerCase()] = true);
                 window.addEventListener('keyup', e => this.keys[e.key.toLowerCase()] = false);
 
-                this.tmp = new THREE.Vector3();
+                this.force = new THREE.Vector3();
 
                 this.forward = new THREE.Vector3();
                 this.right = new THREE.Vector3();
@@ -108,7 +174,7 @@
                 this.isJumping = false;
                 this.jumpTimer = 0;
 
-                this.raycaster = new THREE.Raycaster();
+                this.raycaster = groundRaycaster.components.raycaster.raycaster;
 
                 this.el.addEventListener('body-loaded', () => {
                     this.body = this.el.body;
@@ -119,7 +185,7 @@
                 const el = this.el;
                 const position = el.getAttribute('position');
                 const rotation = el.getAttribute('rotation');
-                const deltaMove = (this.data.speed * deltaTime) / 1000;
+                const deltaMove = this.data.speed;
 
                 camera.object3D.getWorldDirection(this.forward);
                 this.forward.y = 0; 
@@ -127,17 +193,21 @@
                 this.right.copy(this.forward).cross(new THREE.Vector3(0, 1, 0)).normalize();
 
                 // Movement Velocity
-                this.tmp.set(0, 0, 0);
-                if (this.keys['z']) tmp.addScaledVector(this.forward, -deltaMove);
-                if (this.keys['s']) tmp.addScaledVector(this.forward, deltaMove);
-                if (this.keys['q']) tmp.addScaledVector(this.right, deltaMove);
-                if (this.keys['d']) tmp.addScaledVector(this.right, -deltaMove);
+                this.force.set(0, 0, 0);
+                if (this.keys['z']) this.force.addScaledVector(this.forward, -deltaMove);
+                if (this.keys['s']) this.force.addScaledVector(this.forward, deltaMove);
+                if (this.keys['q']) this.force.addScaledVector(this.right, deltaMove);
+                if (this.keys['d']) this.force.addScaledVector(this.right, -deltaMove);
 
+                // Ground Detection
                 const pos = this.el.object3D.position.clone();
                 this.raycaster.set(pos, new THREE.Vector3(0,-1,0), 0, this.data.rayLen + 0.01);
                 const hits = this.raycaster.intersectObjects(this.el.sceneEl.object3D.children, true);
+                this.isTouchingGround = hits.some(h => !this.el.object3D.children.includes(h.object) &&
+                                     h.distance <= (this.data.rayLen + this.data.groundEps));
 
-                // Jump Start
+
+                // Jump Detection
                 const jumpDown = !!(this.keys[' '] || this.keys['space']);
                 const justPressedJump = jumpDown && !this.wasJumpDown;
                 this.wasJumpDown = jumpDown;
@@ -151,7 +221,15 @@
                 }*/
 
                 // Jump Physics
-                if (this.isJumping) {
+                if (justPressedJump && this.isTouchingGround) {
+                    this.body.velocity.x += this.force.x;
+                    this.body.velocity.y += this.data.jumpSpeed;
+                    this.body.velocity.z += this.force.z;
+                } else {
+                    this.body.velocity.x += this.force.x;
+                    this.body.velocity.z += this.force.z;
+                }
+                /*if (this.isJumping) {
                     this.jumpTimer += deltaTime;
                     if (this.jumpTimer >= this.data.jumpCooldown) {
                         this.isTouchingGround = false;
@@ -162,23 +240,26 @@
                         position.y += this.data.jumpSpeed * (-((1 - (this.jumpTimer)/this.data.jumpCooldown)**2) + 1) * (deltaTime / 1000);
                         this.isTouchingGround = false;
                     }
-                }
+                }*/
 
                 // Gravity
-                if (!this.isTouchingGround && !this.isJumping) {
+                /*if (!this.isTouchingGround && !this.isJumping) {
                     position.y -= this.data.gravity * (deltaTime / 1000);
                     if (position.y < 0) {
                         position.y = 0;
                         this.isTouchingGround = true;
                     }
                     console.log("gravity applied, y =", position.y);
-                }
+                }*/
 
-                el.setAttribute('position', position);
+                /*el.setAttribute('position', position);*/
 
-                console.log("isTouchingGround:", this.isTouchingGround, "isJumping:", this.isJumping, "jumpTimer:", this.jumpTimer);
+                console.log("isTouchingGround:", this.isTouchingGround, "postion.y:", position.y, "jumpPressing:", justPressedJump);
             }
         });
+
+    </script>
+    <script>
 
     </script>
     <script>
@@ -291,12 +372,12 @@
 
             const sun = document.querySelector('#sun').getObject3D('light');
             if (sun) {
-                sun.shadow.mapSize.set(1024, 1024);
+                sun.shadow.mapSize.set(2048, 2048);
                 sun.shadow.bias = -0.0005;
-                sun.shadow.camera.near = 0.1;
-                sun.shadow.camera.far  = 20;
-                sun.shadow.camera.left = -5; sun.shadow.camera.right = 5;
-                sun.shadow.camera.top = 5;  sun.shadow.camera.bottom = -5;
+                sun.shadow.camera.near = 7;
+                sun.shadow.camera.far  = 115;
+                sun.shadow.camera.left = -60; sun.shadow.camera.right = 40;
+                sun.shadow.camera.top = 40;  sun.shadow.camera.bottom = -30;
             }
         });
 
