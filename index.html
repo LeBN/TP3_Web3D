@@ -21,25 +21,24 @@
                 roughness="1" roughness-map="./assets/textures/grass/Poliigon_GrassPatchyGround_4585_Roughness.jpg"
                 ambientOcclusion-map="./assets/textures/grass/Poliigon_GrassPatchyGround_4585_AmbientOcclusion.jpg" ambientOcclusion-intensity="1"
                 metalness-map="./assets/textures/grass/Poliigon_GrassPatchyGround_4585_Metallic.jpg"
-                collider-check raycaster="objects: .collidable;"
-                static-body="shape: auto; size: 100 1 100;"
+                body="type: static; shape: auto;"
             ></a-plane>
 
-            <a-box id="deepGroundBox" class="ground" position="0 -0.51 0" depth="100" height="1" width="100"
+            <!--<a-box id="deepGroundBox" class="ground" position="0 -0.51 0" depth="100" height="1" width="100"
                 color="#00000" shadow="cast: true; receive: true"
-                static-body="offset: 0.01 0 0;"></a-box>
+                static-body="offset: 0.01 0 0;"></a-box>-->
 
             <a-box position="5 0.5 -5" depth="1" height="1" width="1"
                 color="#ffffff" shadow="cast: true; receive: true"
-                material="metalness: 1; roughness: 0.1"
+                material="metalness: 1; roughness: 0"
                 class="ground"
                 static-body="shape: box;"></a-box>
             
             <a-entity id="player-rig"
                 move-controls="speed: .3; jumpSpeed: 10; rayLen: 0.7; groundEps: 0.05"
-                position="0 0 0"
+                position="0 2 0"
                 rotation="0 0 0" 
-                body="type: dynamic; shape: none; mass: 65 ; linearDamping: 0.75; angularDamping: .8; material: playerMaterial;"
+                body="type: dynamic; shape: none; mass: 15 ; linearDamping: 0.75; angularDamping: .8; material: playerMaterial;"
                 shape="shape: cylinder; 
                        height: 1.67;
                        radiusTop: 0.25;
@@ -53,15 +52,14 @@
                             position="0 -0.835 0"
                             shadow="cast: true; receive: true" player-model>
                     <a-entity id="ground-raycaster"
-                            raycaster="objects: .ground;"
-                            position="0 -0.835 0"
-                            visible="false">
+                            raycaster="objects: .ground; showLine:true; direction: 0 -1 0;"
+                            position="0 -1 0">
                     </a-entity>
                 </a-gltf-model>
                 <a-entity id="look-rig">
                     <a-entity id="camera-rig" position="0 0.665 0" rotation="0 0 0"
                         look-controls="pointerLockEnabled: true; physicalRotation: true;"
-                        dynamic-body="shape: auto; mass: 0; type: kinematic;"">
+                        dynamic-body="shape: auto; mass: 0; type: kinematic;">
                         <a-camera wasd-controls-enabled="false" rotation="0 0 0" position="-0.6 0 .65" 
                                     camera="fov: 75; near: 0.1; far: 1000; active: true">
                             <a-entity cursor="fuse: false; rayOrigin: mouse"
@@ -128,6 +126,7 @@
 
         groundPlane.addEventListener('body-loaded', () => {
             const body = groundPlane.body;
+            const shape = body.shapes[0];
             const groundMaterial = new CANNON.Material("groundMaterial");
             groundMaterial.friction = 0.0;
             groundMaterial.restitution = 0.0;
@@ -175,6 +174,19 @@
                 this.jumpTimer = 0;
 
                 this.raycaster = groundRaycaster.components.raycaster.raycaster;
+                this.groundMeshes = [];
+                const collectGroundMeshes = () => { 
+                    this.groundMeshes.length = 0; 
+                    const ents = this.el.sceneEl.querySelectorAll('.ground'); 
+                    ents.forEach(e => e.object3D && e.object3D.traverse(o => { if (o.isMesh) this.groundMeshes.push(o); })); 
+                };
+                if (this.el.sceneEl.hasLoaded) collectGroundMeshes(); else this.el.sceneEl.addEventListener('loaded', collectGroundMeshes);
+                const refreshIfGround = (e)=>{ 
+                    const n=e.detail&&e.detail.el; 
+                    if(n && n.classList && n.classList.contains('ground')) collectGroundMeshes(); 
+                }; 
+                this.el.sceneEl.addEventListener('child-attached', refreshIfGround); 
+                this.el.sceneEl.addEventListener('child-detached', refreshIfGround);
 
                 this.el.addEventListener('body-loaded', () => {
                     this.body = this.el.body;
@@ -200,11 +212,23 @@
                 if (this.keys['d']) this.force.addScaledVector(this.right, -deltaMove);
 
                 // Ground Detection
-                const pos = this.el.object3D.position.clone();
-                this.raycaster.set(pos, new THREE.Vector3(0,-1,0), 0, this.data.rayLen + 0.01);
-                const hits = this.raycaster.intersectObjects(this.el.sceneEl.object3D.children, true);
-                this.isTouchingGround = hits.some(h => !this.el.object3D.children.includes(h.object) &&
-                                     h.distance <= (this.data.rayLen + this.data.groundEps));
+                const rayPos = new THREE.Vector3();
+                this.el.object3D.getWorldPosition(rayPos);
+                const dir = new THREE.Vector3(0, -1, 0);
+                this.raycaster.set(rayPos, dir);
+                this.raycaster.near = 0;
+                this.raycaster.far = this.data.rayLen + 0.01;
+                const hits = this.groundMeshes.length ? this.raycaster.intersectObjects(this.groundMeshes, true) : [];
+                const isSelfOrDescendant = (obj)=>{ 
+                    for(let o=obj;o;o=o.parent) if(o===this.el.object3D) return true; return false; 
+                };
+                this.isTouchingGround = hits.some(h =>
+                    !isSelfOrDescendant(h.object) &&
+                    h.distance <= (this.data.rayLen + this.data.groundEps)
+                );
+                console.log('Hits:', hits.map(h => !this.el.object3D.children.includes(h.object)));
+                console.log('Ray Far:', this.raycaster.far, ' | ε:', this.data.groundEps);
+                console.log('IsTouchingGround:', this.isTouchingGround);
 
 
                 // Jump Detection
@@ -372,12 +396,12 @@
 
             const sun = document.querySelector('#sun').getObject3D('light');
             if (sun) {
-                sun.shadow.mapSize.set(2048, 2048);
+                sun.shadow.mapSize.set(1024, 1024);
                 sun.shadow.bias = -0.0005;
                 sun.shadow.camera.near = 7;
                 sun.shadow.camera.far  = 115;
-                sun.shadow.camera.left = -60; sun.shadow.camera.right = 40;
-                sun.shadow.camera.top = 40;  sun.shadow.camera.bottom = -30;
+                sun.shadow.camera.left = -60; sun.shadow.camera.right = 60;
+                sun.shadow.camera.top = 60;  sun.shadow.camera.bottom = -60;
             }
         });
 

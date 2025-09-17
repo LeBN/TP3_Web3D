@@ -21,7 +21,16 @@ export var Component = registerComponent('look-controls', {
     reverseTouchDrag: {default: false},
     touchEnabled: {default: true},
     mouseEnabled: {default: true},
-    physcalRotation: {default: false}
+    physcalRotation: {default: false},
+
+    thirdPersonEnabled: {default: true},
+    boomDistance: {default: 2.0},
+    boomMin: {default: 0.5},
+    boomMax: {default: 6.0},
+    boomSpeed: {default: 0.25},     
+    boomHeight: {default: 1.6},     
+    boomSide: {default: 0.0},       
+    invertWheel: {default: false}  
   },
 
   init: function () {
@@ -41,6 +50,10 @@ export var Component = registerComponent('look-controls', {
     this.previousMouseEvent = {};
 
     this.setupMagicWindowControls();
+
+    this.currentBoom = this.data.boomDistance;
+
+    this.applyThirdPersonOffset();
 
     // To save / restore camera pose
     this.savedPose = {
@@ -129,6 +142,7 @@ export var Component = registerComponent('look-controls', {
     this.onExitVR = this.onExitVR.bind(this);
     this.onPointerLockChange = this.onPointerLockChange.bind(this);
     this.onPointerLockError = this.onPointerLockError.bind(this);
+    this.onWheel = this.onWheel.bind(this);
   },
 
  /**
@@ -159,6 +173,7 @@ export var Component = registerComponent('look-controls', {
     canvasEl.addEventListener('mousedown', this.onMouseDown, false);
     window.addEventListener('mousemove', this.onMouseMove, false);
     window.addEventListener('mouseup', this.onMouseUp, false);
+    canvasEl.addEventListener('wheel', this.onWheel, {passive: false});
 
     // Touch events.
     canvasEl.addEventListener('touchstart', this.onTouchStart, {passive: true});
@@ -190,6 +205,7 @@ export var Component = registerComponent('look-controls', {
     canvasEl.removeEventListener('mousedown', this.onMouseDown);
     window.removeEventListener('mousemove', this.onMouseMove);
     window.removeEventListener('mouseup', this.onMouseUp);
+    canvasEl.removeEventListener('wheel', this.onWheel);
 
     // Touch events.
     canvasEl.removeEventListener('touchstart', this.onTouchStart);
@@ -204,6 +220,31 @@ export var Component = registerComponent('look-controls', {
     document.removeEventListener('pointerlockchange', this.onPointerLockChange, false);
     document.removeEventListener('mozpointerlockchange', this.onPointerLockChange, false);
     document.removeEventListener('pointerlockerror', this.onPointerLockError, false);
+  },
+
+  onWheel: function (evt) {
+    if (!this.data.enabled || !this.data.mouseEnabled || !this.data.thirdPersonEnabled) return;
+    evt.preventDefault();
+
+    var dir = this.data.invertWheel ? -1 : 1;
+    var deltaMeters = (evt.deltaY || 0) * 0.01 * dir * this.data.boomSpeed;
+
+    this.currentBoom = THREE.MathUtils.clamp(
+      this.currentBoom + deltaMeters,
+      this.data.boomMin,
+      this.data.boomMax
+    );
+
+    this.applyThirdPersonOffset();
+  },
+
+  applyThirdPersonOffset: function () {
+    if (!this.data.thirdPersonEnabled) return;
+    this.el.object3D.position.set(
+      this.data.boomSide,
+      this.data.boomHeight,
+      -this.currentBoom
+    );
   },
 
   /**
